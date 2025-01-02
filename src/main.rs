@@ -1,9 +1,5 @@
 use dioxus::prelude::*;
 
-const FAVICON: Asset = asset!("/assets/favicon.ico");
-const MAIN_CSS: Asset = asset!("/assets/main.css");
-const HEADER_SVG: Asset = asset!("/assets/header.svg");
-
 static CSS: Asset = asset!("/assets/main.css");
 
 fn main() {
@@ -33,7 +29,7 @@ fn App() -> Element {
 fn Title() -> Element {
     let title = use_context::<TitleState>();
     rsx! {
-            h1 { title.get_title() }
+            h1 { "{title.get_title()}" }
     }
 }
 
@@ -45,28 +41,25 @@ struct DogApi {
 
 #[component]
 fn DogView() -> Element {
-    let mut img_src = use_signal(|| "".to_string() );
-
-    let fetch_new = move |_| async move{
-        let response = reqwest::get("https://dog.ceo/api/breeds/image/random")
+    let mut img_src = use_resource(|| async move{
+        reqwest::get("https://dog.ceo/api/breeds/image/random")
             .await
             .unwrap()
             .json::<DogApi>()
             .await
-            .unwrap();
-        img_src.set(response.message);
-    };
+            .unwrap()
+            .message
+    });
 
-    // let skip = move | event | {};
-    let save = move | event | {};
+    let save = move | _event | {};
 
 
     rsx! {
         div { id: "dogView",
-            img {src: {img_src}, alt: "dog"}
+            img {src: img_src.cloned().unwrap_or_default(), alt: "dog"}
         }
         div { id: "buttons",
-            button { onclick: fetch_new, id: "skip", "skip" }
+            button { onclick: move|_| img_src.restart(), id: "skip", "skip" }
             button { onclick: save, id: "save", "save!" }
         }
     }
