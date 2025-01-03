@@ -1,47 +1,44 @@
+use backend::save_dog;
 use dioxus::prelude::*;
 
+mod components;
+mod backend;
+
+use crate::components::*;
+
 static CSS: Asset = asset!("/assets/main.css");
+
+#[derive(Routable, Clone, PartialEq)]
+enum Route {
+    #[layout(NavBar)]
+    #[route("/")]
+    DogView,
+    #[route("/favorites")]
+    Favorites,
+}
 
 fn main() {
     dioxus::launch(App);
 }
 
-#[derive(Clone)]
-struct TitleState(String);
-
-impl TitleState {
-    fn get_title(&self) -> String {
-        self.0.clone()
-    }
-}
 
 #[component]
 fn App() -> Element {
-    use_context_provider(|| TitleState("HotDog!".to_string()));
     rsx! {
         document::Stylesheet { href: CSS }
-        Title {}
-        DogView {}
+        Router::<Route>{}
     }
 }
 
-#[component]
-fn Title() -> Element {
-    let title = use_context::<TitleState>();
-    rsx! {
-            h1 { "{title.get_title()}" }
-    }
-}
 
 #[derive(serde::Deserialize)]
 struct DogApi {
     message: String,
-    status: String,
 }
 
 #[component]
 fn DogView() -> Element {
-    let mut img_src = use_resource(|| async move{
+    let mut img_src = use_resource(|| async move {
         reqwest::get("https://dog.ceo/api/breeds/image/random")
             .await
             .unwrap()
@@ -51,16 +48,21 @@ fn DogView() -> Element {
             .message
     });
 
-    let save = move | _event | {};
-
-
     rsx! {
         div { id: "dogView",
-            img {src: img_src.cloned().unwrap_or_default(), alt: "dog"}
+            img { src: img_src.cloned().unwrap_or_default(), alt: "dog" }
         }
         div { id: "buttons",
-            button { onclick: move|_| img_src.restart(), id: "skip", "skip" }
-            button { onclick: save, id: "save", "save!" }
+            button { onclick: move |_| img_src.restart(), id: "skip", "skip" }
+            button {
+                id: "save",
+                onclick: move |_| async move {
+                    let current_image = img_src.cloned().unwrap();
+                    img_src.restart();
+                    let _ = save_dog(current_image).await;
+                },
+                "save!"
+            }
         }
     }
 }
